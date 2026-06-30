@@ -33,6 +33,21 @@ let processingPromise = null;
 }
 ```
 
+如果需要请求商品详情 API，任务中还可以保存从列表页解析出的接口参数：
+
+```javascript
+{
+  productId: "",
+  sellerId: "",
+  shopId: "",
+  skuId: "",
+  region: "",
+  apiParams: {}
+}
+```
+
+这些字段用于生成详情 API 请求，但不要保存 Cookie、token、签名密钥等敏感信息。
+
 ## 并发
 
 - 默认并发为 `1`。

@@ -11,6 +11,13 @@ const adapter = {
   id: "shopee",
   name: "Shopee",
   hosts: ["shopee.com", "shopee.sg", "shopee.com.my"],
+  mallUrls: ["https://shopee.sg"],
+  detailApi: {
+    urlPattern: "",
+    method: "GET",
+    buildRequest(productUrl, task) {},
+    parseResponse(json, task) {}
+  },
   isSearchPage(url, doc) {},
   isProductPage(url, doc) {},
   getProductLinks(doc) {},
@@ -22,6 +29,8 @@ const adapter = {
 
 通用逻辑只调用 adapter 方法，再把返回结果归一化成统一商品结构。
 
+如果项目暂时没有 adapter 框架，也要在实现中保持同样边界：平台识别、列表解析、详情解析、翻页、字段归一化不要和通用队列/导出逻辑混在一起。
+
 ## 识别顺序
 
 1. 根据 manifest、当前 URL 或项目配置识别平台 host。
@@ -29,6 +38,71 @@ const adapter = {
 3. 根据 URL 规则、商品 ID、JSON-LD Product 对象和详情页 DOM 判断商品详情页。
 4. 先解析列表卡片基础数据。
 5. 把基础数据放进任务后，再请求或解析详情页。
+
+## 新平台适配步骤
+
+1. 记录平台信息：
+   - 平台名
+   - 国家 / 地区
+   - 商城首页
+   - 搜索页 / 分类页示例
+   - 商品详情页示例
+2. 分析 URL：
+   - 搜索页 URL 是否有关键词参数
+   - 分类页 URL 是否有分页参数
+   - 商品详情页 URL 中是否包含商品 ID、店铺 ID
+3. 分析详情数据来源：
+   - 页面 HTML 是否有 JSON-LD
+   - 是否有 `__NEXT_DATA__`、`__NUXT__`、Redux、Apollo 或平台状态对象
+   - 是否有公开商品详情 API
+   - DOM 中哪些节点显示目标字段
+4. 先实现列表页入队。
+5. 再实现详情页字段补齐。
+6. 最后接入导出、日志、并发、自动翻页和部分成功保存。
+
+## 商品详情 API 适配
+
+当用户提供商品详情 API 地址时，adapter 可以包含 `detailApi` 配置，但不要硬编码敏感鉴权。
+
+推荐处理：
+
+```javascript
+async function fetchDetailByApi(task) {
+  const request = adapter.detailApi.buildRequest(task.url, task);
+  const response = await fetch(request.url, {
+    method: request.method || "GET",
+    credentials: "include",
+    headers: request.headers || {}
+  });
+  const json = await response.json();
+  return adapter.detailApi.parseResponse(json, task);
+}
+```
+
+注意：
+
+- `credentials: "include"` 只能用于当前用户正常可访问的数据。
+- 不把 Cookie、Authorization、token、签名密钥写进代码。
+- API 失败时回退到页面结构化数据和 DOM。
+- API 字段要归一化到统一商品结构，不要直接把接口原始字段当最终导出字段。
+
+## 商城地址配置
+
+同一平台不同地区站点要分开配置：
+
+```javascript
+const SHOPEE_SITES = [
+  { region: "sg", host: "shopee.sg", mallUrl: "https://shopee.sg", currency: "SGD" },
+  { region: "my", host: "shopee.com.my", mallUrl: "https://shopee.com.my", currency: "MYR" }
+];
+```
+
+配置用途：
+
+- 判断页面是否属于目标平台。
+- 补充默认币种和地区。
+- 生成相对 URL 的绝对地址。
+- 判断接口是否同源或需要 host permissions。
 
 ## 结构化数据来源
 

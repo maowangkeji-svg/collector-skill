@@ -1,0 +1,3 @@
+display_name: 跨平台商品采集器
+short_description: 开发和排查 Shopee、Temu 等电商平台商品采集器。
+default_prompt: 使用这个 skill 设计、修改或排查 Shopee、Temu、MercadoLibre、Amazon、AliExpress 等平台的商品采集器。
